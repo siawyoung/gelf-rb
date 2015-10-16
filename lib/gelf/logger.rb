@@ -8,12 +8,13 @@ module GELF
     def add(level, message = nil, progname = nil, &block)
       progname ||= default_options['facility']
 
-      if message.nil?
+      if message.blank?
         if block_given?
           message = yield
         else
-          message = progname
-          progname = default_options['facility']
+          # message = progname
+          # progname = default_options['facility']
+          return
         end
       end
 
