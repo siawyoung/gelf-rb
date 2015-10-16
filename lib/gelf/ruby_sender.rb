@@ -39,7 +39,7 @@ module GELF
             @socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM, 0)
           end
           sockaddr = Socket.sockaddr_in(@port, @host)
-          @socket.connect_nonblock(sockaddr)
+          @socket.connect(sockaddr)
         rescue Errno::EISCONN
           @connected = true
         rescue Errno::EINPROGRESS, Errno::EALREADY
