@@ -24,6 +24,7 @@ module GELF
 
   class RubyTcpSocket
     attr_accessor :socket
+    include Config
 
     def initialize(host, port)
       @host = host
@@ -104,44 +105,79 @@ module GELF
     end
 
     def send(message)
-      while true do
-        sent = false
-        sockets = @sockets.map { |s|
-          if s.connected?
-            s.socket
-          end
-        }
-        sockets.compact!
-        next unless not sockets.empty?
+      # attempts = 0
+
+      GELF::Config::TCP::MAX_ATTEMPTS.times do |n|
+        
+        sockets = @sockets.map { |s| s.socket if s.connected? }
+        next if sockets.compact.empty?
         begin
-          result = select( nil, sockets, nil, 1)
-          if result
+          if result = select(nil, sockets, nil, 1)
             writers = result[1]
             sent = write_any(writers, message)
           end
-          break if sent
+          return if sent
         rescue SystemCallError, IOError
         end
+
       end
+
+      warn 'The TCP connection was not established. This log message was not sent to your Graylog2 server. Please check your hostname and port, or disable Rogger by adding `disabled: true` to `rogger.yml`.'
+
+      # while attempts < GELF::Config::TCP::MAX_ATTEMPTS do
+      #   attempts += 1
+      #   sent = false
+      #   sockets = @sockets.map { |s|
+      #     if s.connected?
+      #       s.socket
+      #     end
+      #   }
+      #   sockets.compact!
+      #   if sockets.empty?
+      #     attempts = GELF::Config::TCP::MAX_ATTEMPTS
+      #     break
+      #   end
+      #   begin
+      #     result = select( nil, sockets, nil, 1)
+      #     if result
+      #       writers = result[1]
+      #       sent = write_any(writers, message)
+      #     end
+      #     next if sent
+      #   rescue SystemCallError, IOError
+      #   end
+      # end
+
+      # if attempts == GELF::Config::TCP::MAX_ATTEMPTS
+      #   warn 'TCP NOT WORKING'
+      # end
+
     end
 
     private
+
     def write_any(writers, message)
       writers.shuffle.each do |w|
         begin
           w.write(message)
           return true
         rescue Errno::EPIPE
+
           @sockets.each do |s|
+
             if s.socket == w
               s.socket.close
               s.socket = nil
               s.connect
             end
+
           end
-        end
+        end        
       end
       return false
+
     end
+
   end
+
 end
