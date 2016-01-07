@@ -25,6 +25,11 @@ module GELF
         message.each do |k,v|
           message_hash[k.to_s] = message[k]
         end
+        # leave short message blank if user did not indicate
+        # since GELF requires it
+        if !message['short_message']
+          message_hash['short_message'] = "Short message not provided."
+        end
       else
         message_hash['short_message'] = message
       end
